@@ -20,8 +20,7 @@ jobs:
   download-and-upload:
     runs-on: ubuntu-latest
     permissions:
-      contents: write          # 允许创建 Release 和上传资产
-      # 如果还需要其他权限，如 issues: write，可添加，但此处不需要
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,5 +36,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # 创建 Release（如果不存在）
           gh release create "${{ github.event.inputs.tag_name }}" --title "${{ github.event.inputs.tag_name }}" --generate-notes || true
-          gh release upload "${{ github.event.inputs.tag_name }}" "${{ github.event.inputs.file_name }}" --clobber
+
+          FILE="${{ github.event.inputs.file_name }}"
+          MAX_SIZE=2147483648  # 2GB
+
+          if [ $(stat -c%s "$FILE") -gt $MAX_SIZE ]; then
+            echo "文件超过 2GB，正在分割..."
+            # 分割为 1900MB 的块（留有余量）
+            split -b 1900M "$FILE" "${FILE}.part"
+            # 上传每个分割文件
+            for part in ${FILE}.part*; do
+              echo "上传 $part ..."
+              gh release upload "${{ github.event.inputs.tag_name }}" "$part" --clobber
+            done
+            # 可选：同时上传一个信息文件，告知用户如何合并
+            echo "文件已分割为多个部分，下载后请使用 cat ${FILE}.part* > ${FILE} 合并。" > "${FILE}.README.txt"
+            gh release upload "${{ github.event.inputs.tag_name }}" "${FILE}.README.txt" --clobber
+          else
+            echo "文件小于 2GB，直接上传..."
+            gh release upload "${{ github.event.inputs.tag_name }}" "$FILE" --clobber
+          fi
