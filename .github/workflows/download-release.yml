@@ -28,7 +28,7 @@ jobs:
 
       - name: Download file from Google Drive
         run: |
-          gdown --no-verify "${{ github.event.inputs.file_id }}" -O "${{ github.event.inputs.file_name }}"
+          gdown "${{ github.event.inputs.file_id }}" -O "${{ github.event.inputs.file_name }}"
         # 如果文件较大，可添加 --continue 支持断点续传（但 gdown 默认不支持，可改用 curl）
 
       - name: Upload to Release
