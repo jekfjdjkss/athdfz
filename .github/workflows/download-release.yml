@@ -1,0 +1,41 @@
+name: Download from Google Drive and Upload to Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_id:
+        description: 'Google Drive File ID'
+        required: true
+        default: '1K-5h_j4Gui7wjMovF29dqqTHqMx-IgQ8'
+      file_name:
+        description: 'Name for downloaded file'
+        required: true
+        default: 'downloaded-file.bin'
+      tag_name:
+        description: 'Release tag (will create if not exists)'
+        required: true
+        default: 'latest'
+
+jobs:
+  download-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install gdown
+        run: pip install gdown
+
+      - name: Download file from Google Drive
+        run: |
+          gdown --no-verify "${{ github.event.inputs.file_id }}" -O "${{ github.event.inputs.file_name }}"
+        # 如果文件较大，可添加 --continue 支持断点续传（但 gdown 默认不支持，可改用 curl）
+
+      - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 创建 Release（如果标签不存在）
+          gh release create "${{ github.event.inputs.tag_name }}" --title "${{ github.event.inputs.tag_name }}" --generate-notes || true
+          # 上传资产到 Release（如果已存在则覆盖）
+          gh release upload "${{ github.event.inputs.tag_name }}" "${{ github.event.inputs.file_name }}" --clobber
